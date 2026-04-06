@@ -1,3 +1,3 @@
-start_position = [1.0, 1.0, pi/2]; % (x, y, theta)
+start_position = [3.0, 4.0, 0.0]; % (x, y, theta)
 
-map_name = 'maps/indoor_1.txt';
+map_name = 'maps/assignment_2_motion_control_map.txt';
