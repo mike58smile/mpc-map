@@ -12,7 +12,7 @@ theta = current_pose(3);
 delta = target - position;
 distance = norm(delta, 2);
 
-if distance < 0.15
+if distance < 0.05
     motion_vector = [0.0, 0.0];
     return;
 end
@@ -20,10 +20,10 @@ end
 desired_heading = atan2(delta(2), delta(1));
 heading_error = atan2(sin(desired_heading - theta), cos(desired_heading - theta));
 
-k_v = 0.35;
+k_v = 0.7;
 k_w = 2.0;
 
-v = min(0.45 * max_vel, k_v * distance);
+v = min(0.2 * max_vel, k_v * distance);
 omega = k_w * heading_error;
 
 vR = v + 0.5 * interwheel_dist * omega;

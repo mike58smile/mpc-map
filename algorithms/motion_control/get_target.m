@@ -15,7 +15,7 @@ position = estimated_pose(1:2);
 distances = vecnorm(path - position, 2, 2);
 [~, nearest_idx] = min(distances);
 
-lookahead = 5;
+lookahead = 1;
 target_idx = min(nearest_idx + lookahead, size(path, 1));
 
 target = path(target_idx, :);

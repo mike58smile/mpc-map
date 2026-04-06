@@ -11,7 +11,7 @@ if planning_required
     
 else
     % Week 3 / Task 2: define and visualize sample paths.
-    selected_path = 'circular'; % change to: 'straight', 'circular', or 'sine'
+    selected_path = 'sine'; % change to: 'straight', 'circular', or 'sine'
 
     % Curve parameters for creating smaller/more frequent curves.
     path_params.sine_cycles = 10.0;
