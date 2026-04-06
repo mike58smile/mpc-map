@@ -1,4 +1,4 @@
-﻿# Week 2 - Uncertainty
+# Week 2 - Uncertainty
 
 The goal of this assignment is to become familiar with the simulator and explore uncertainties in the sensors and motion.
 
