@@ -4,4 +4,3 @@ function [measurement] = compute_lidar_measurement(map, pose, lidar_config)
 measurement = zeros(1, length(lidar_config));
 
 end
-
