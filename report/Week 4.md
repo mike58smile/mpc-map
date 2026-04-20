@@ -12,9 +12,11 @@
 I implemented the prediction step in `predict_pose.m` for all particles. The function uses wheel speeds `(v_r, v_l)` and computes linear and angular velocity.
 
 The kinematic model is:
+
 $$
 v = \frac{v_r + v_l}{2}, \qquad \omega = \frac{v_r - v_l}{L}
 $$
+
 where $L$ is the interwheel distance. The pose is then updated for one time step. The heading angle is normalized to $(-\pi, \pi]$.
 
 ## Task 2
