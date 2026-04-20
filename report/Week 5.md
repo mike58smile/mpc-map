@@ -40,3 +40,29 @@ From simulator outputs, the corrected estimate $\mu_{corr}$ differs from the pre
 
 # Task 3
 
+For Task 3, I set the initial EKF belief to the known pose
+$\mu_0=[2,2,\pi/2]^T$ and used
+$\Sigma_0=\mathbf{0}_{3\times3}$ (high certainty).
+
+The measurement noise matrix was set from Task 1 GNSS covariance:
+
+$$
+Q = \begin{bmatrix}
+0.2490 & -0.0023 \\
+-0.0023 & 0.1793
+\end{bmatrix}.
+$$
+
+I initialized process noise with variances $0.01$ and then tuned matrix $R$ for smoother behavior. The final tuned setting was:
+
+```matlab
+public_vars.kf.R = diag([0.0003, 0.0003, 0.0002]);
+```
+
+The controller used only the EKF estimated pose. With this setup, the robot successfully followed the trajectory and reached the goal.
+
+Captured result:
+
+![](images/kalmanPath1.png)
+
+# Task 4

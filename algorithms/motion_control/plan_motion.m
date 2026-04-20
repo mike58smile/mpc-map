@@ -1,30 +1,8 @@
 function [public_vars] = plan_motion(read_only_vars, public_vars)
 %PLAN_MOTION Task 3: simple path-following with MoCap pose.
 
-required_samples = 80;
-if isfield(public_vars, 'kf') && isfield(public_vars.kf, 'gnss_init_required')
-	required_samples = public_vars.kf.gnss_init_required;
-end
-
-if isfield(read_only_vars, 'gnss_history') && ~isempty(read_only_vars.gnss_history)
-	valid_count = sum(all(isfinite(read_only_vars.gnss_history(:, 1:2)), 2));
-elseif isfield(read_only_vars, 'gnss_position') && numel(read_only_vars.gnss_position) >= 2 && all(isfinite(read_only_vars.gnss_position(1:2)))
-	valid_count = 1;
-else
-	valid_count = 0;
-end
-
-if valid_count < required_samples
-	public_vars.motion_vector = [0.0, 0.0];
-	return;
-end
-
 % I. Pick navigation target
-if isfield(read_only_vars, 'mocap_pose') && numel(read_only_vars.mocap_pose) >= 3
-	current_pose = read_only_vars.mocap_pose;
-else
-	current_pose = public_vars.estimated_pose;
-end
+current_pose = public_vars.estimated_pose;
 
 target = get_target(current_pose, public_vars.path);
 
@@ -59,10 +37,10 @@ end
 desired_heading = atan2(delta(2), delta(1));
 heading_error = atan2(sin(desired_heading - theta), cos(desired_heading - theta));
 
-k_v = 0.45;
-k_w = 1.6;
+k_v = 1.20;   % was 0.45
+k_w = 1.4;    % was 1.6 (slightly lower to avoid oscillation at higher speed)
 
-base_v = min(0.12 * max_vel, k_v * distance);
+base_v = min(0.35 * max_vel, k_v * distance); % was 0.12 * max_vel
 heading_slowdown = max(0.0, cos(heading_error));
 v = base_v * heading_slowdown;
 omega = k_w * heading_error;
