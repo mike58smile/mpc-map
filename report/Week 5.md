@@ -14,14 +14,18 @@ The trajectory was defined by hand-selected waypoints.
 
 ![](images/createdPath.png)
 
-At the same time, I implemented the initialization procedure for the Kalman filter based on GNSS measurements.
+I implemented the initialization procedure for the Kalman filter based on GNSS measurements.
 
 The robot remains stationary at the beginning and collects 80 GNSS samples. From these samples, the initial position mean and covariance matrix are computed and used as the initial belief for the EKF/KF pipeline.
 
 Measured initialization result:
 
 ```text
-KF init done with 80 GNSS samples. mean=[2.005 2.037], cov=[0.2144 0.01246;0.01246 0.1868]
+GNSS initialization complete.
+Mean: [2.0115 1.9281]
+Covariance matrix:
+  0.2490   -0.0023
+   -0.0023    0.1793
 ```
 
 The estimated initial position is close to the true start pose, and the covariance matrix captures the GNSS uncertainty in both axes including a small correlation term.

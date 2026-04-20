@@ -1,8 +1,20 @@
 function [public_vars] = plan_motion(read_only_vars, public_vars)
 %PLAN_MOTION Task 3: simple path-following with MoCap pose.
 
-% Keep the robot still while collecting GNSS samples for KF initialization.
-if isfield(public_vars, 'kf') && isfield(public_vars.kf, 'init') && ~public_vars.kf.init.done
+required_samples = 80;
+if isfield(public_vars, 'kf') && isfield(public_vars.kf, 'gnss_init_required')
+	required_samples = public_vars.kf.gnss_init_required;
+end
+
+if isfield(read_only_vars, 'gnss_history') && ~isempty(read_only_vars.gnss_history)
+	valid_count = sum(all(isfinite(read_only_vars.gnss_history(:, 1:2)), 2));
+elseif isfield(read_only_vars, 'gnss_position') && numel(read_only_vars.gnss_position) >= 2 && all(isfinite(read_only_vars.gnss_position(1:2)))
+	valid_count = 1;
+else
+	valid_count = 0;
+end
+
+if valid_count < required_samples
 	public_vars.motion_vector = [0.0, 0.0];
 	return;
 end
