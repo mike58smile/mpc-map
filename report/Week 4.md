@@ -6,7 +6,7 @@
 # MPC-MAP Assignment No. 3 - Report
 
 **Author:** Michal Miškolci  
-**Date:** 17. 4. 2026  
+**Date:** 13. 4. 2026  
 ## Task 1
 
 I implemented the prediction step in `predict_pose.m` for all particles. The function uses wheel speeds `(v_r, v_l)` and computes linear and angular velocity.

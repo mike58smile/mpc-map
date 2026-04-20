@@ -1,6 +1,12 @@
 function [public_vars] = plan_motion(read_only_vars, public_vars)
 %PLAN_MOTION Task 3: simple path-following with MoCap pose.
 
+% Keep the robot still while collecting GNSS samples for KF initialization.
+if isfield(public_vars, 'kf') && isfield(public_vars.kf, 'init') && ~public_vars.kf.init.done
+	public_vars.motion_vector = [0.0, 0.0];
+	return;
+end
+
 % I. Pick navigation target
 if isfield(read_only_vars, 'mocap_pose') && numel(read_only_vars.mocap_pose) >= 3
 	current_pose = read_only_vars.mocap_pose;
@@ -55,6 +61,6 @@ vL = v - 0.5 * interwheel_dist * omega;
 vR = max(-max_vel, min(max_vel, vR));
 vL = max(-max_vel, min(max_vel, vL));
 
-motion_vector = [0.2, 0.2];
+motion_vector = [vR, vL];
 
 end

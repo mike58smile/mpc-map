@@ -2,24 +2,32 @@ function [path] = plan_path(read_only_vars, public_vars)
 %PLAN_PATH Summary of this function goes here
 
 if read_only_vars.counter == 1 || isempty(public_vars.path)
-    if isfield(read_only_vars, 'mocap_pose') && numel(read_only_vars.mocap_pose) >= 2
-        start_point = read_only_vars.mocap_pose(1:2);
-    elseif ~isempty(public_vars.estimated_pose) && numel(public_vars.estimated_pose) >= 2
-        start_point = public_vars.estimated_pose(1:2);
-    else
-        start_point = [0.0, 0.0];
-    end
+    % Task 1: hand-crafted route on outdoor_1 from [2, 2] to [16, 2].
+    waypoints = [
+        2.0, 2.0;
+        2.0, 4.8;
+        7.0, 7.5;
+        12.5, 7.5;
+        14.7, 3.8;
+        16.0, 2.0
+    ];
 
-    if isfield(read_only_vars, 'map') && isfield(read_only_vars.map, 'goal') && numel(read_only_vars.map.goal) >= 2
-        end_point = read_only_vars.map.goal(1:2);
-    else
-        end_point = [21.0, 4.0];
-    end
+    segment_step = 0.25;
+    path = waypoints(1, :);
 
-    n_points = 50;
-    x = linspace(start_point(1), end_point(1), n_points)';
-    y = linspace(start_point(2), end_point(2), n_points)';
-    path = [x, y];
+    for i = 1:size(waypoints, 1)-1
+        p0 = waypoints(i, :);
+        p1 = waypoints(i+1, :);
+        d = norm(p1 - p0, 2);
+        n = max(2, ceil(d / segment_step) + 1);
+
+        x = linspace(p0(1), p1(1), n)';
+        y = linspace(p0(2), p1(2), n)';
+        segment = [x, y];
+
+        % Skip the first sample to prevent duplicates between segments.
+        path = [path; segment(2:end, :)]; %#ok<AGROW>
+    end
 else
     path = public_vars.path;
 
