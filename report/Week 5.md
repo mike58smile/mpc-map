@@ -32,5 +32,11 @@ The estimated initial position is close to the true start pose, and the covarian
 
 # Task 2
 
+I implemented EKF prediction and KF correction for localization.
 
+The prediction step uses the nonlinear differential-drive model and its Jacobian to propagate the state and covariance. The correction step uses GNSS measurement $z=[x,y]^T$ with linear measurement model $C=[1\ 0\ 0;\ 0\ 1\ 0]$.
+
+From simulator outputs, the corrected estimate $\mu_{corr}$ differs from the predicted estimate $\mu_{pred}$ after GNSS updates, which confirms that the correction step is active.
+
+# Task 3
 
