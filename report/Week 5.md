@@ -73,4 +73,18 @@ Since GNSS does not directly measure orientation, I started with low confidence 
 
 I then tuned the filter parameters to reduce oscillations and make the path smoother. After tuning, the estimated trajectory followed the real robot path well and the robot reached the goal.
 
+Final tuned matrices used in this task:
+
+$$
+R = \begin{bmatrix}
+0.0001 & 0 & 0 \\
+0 & 0.0001 & 0 \\
+0 & 0 & 0.0003
+\end{bmatrix}, \qquad
+Q = \begin{bmatrix}
+0.4980 & -0.0046 \\
+-0.0046 & 0.3586
+\end{bmatrix}
+$$
+
 ![](images/path.png)
