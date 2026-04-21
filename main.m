@@ -12,7 +12,7 @@ check_toolboxes;
 
 % Call setup procedure
 setup;
-
+    
 % Default public variables
 public_vars.motion_vector = [0, 0]; % (vR, vL)
 public_vars.init_iterations = 1;

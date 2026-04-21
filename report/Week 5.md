@@ -66,3 +66,11 @@ Captured result:
 ![](images/kalmanPath1.png)
 
 # Task 4
+
+In Task 4, I worked with an unknown initial pose. I first let the robot stay still and collect GNSS data, then used these samples to set a better starting point for the filter.
+
+Since GNSS does not directly measure orientation, I started with low confidence in the initial heading. At the beginning, the heading estimate was unstable, but after a short time it converged.
+
+I then tuned the filter parameters to reduce oscillations and make the path smoother. After tuning, the estimated trajectory followed the real robot path well and the robot reached the goal.
+
+![](images/path.png)

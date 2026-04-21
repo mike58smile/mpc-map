@@ -47,6 +47,5 @@ To improve robustness, I tuned the motion and measurement noise parameters and a
 A small fraction of particles is periodically reinitialized to maintain diversity and reduce long-term degeneracy.
 
 The final result is successful localization: particles form a stable cluster around the robot pose while a few exploratory particles remain in the map.
-
 ![](images/particleFilterConvergence.png)
 

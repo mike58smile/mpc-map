@@ -1,6 +1,23 @@
 function [public_vars] = plan_motion(read_only_vars, public_vars)
 %PLAN_MOTION Task 3: simple path-following with MoCap pose.
 
+required_samples = 80;
+if isfield(public_vars, 'kf') && isfield(public_vars.kf, 'gnss_init_required')
+	required_samples = public_vars.kf.gnss_init_required;
+end
+
+valid_count = 0;
+if isfield(read_only_vars, 'gnss_history') && ~isempty(read_only_vars.gnss_history)
+	valid_count = sum(all(isfinite(read_only_vars.gnss_history(:, 1:2)), 2));
+elseif isfield(read_only_vars, 'gnss_position') && numel(read_only_vars.gnss_position) >= 2 && all(isfinite(read_only_vars.gnss_position(1:2)))
+	valid_count = 1;
+end
+
+if valid_count < required_samples
+	public_vars.motion_vector = [0.0, 0.0];
+	return;
+end
+
 % I. Pick navigation target
 current_pose = public_vars.estimated_pose;
 
