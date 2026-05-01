@@ -1,4 +1,4 @@
-﻿# Week 5 - Kalman Filter and EKF
+# Week 5 - Kalman Filter and EKF
 
 The goal of this assignment is to implement a localization algorithm based on the Extended Kalman Filter and GNSS data.
 
