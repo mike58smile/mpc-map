@@ -3,7 +3,7 @@
   <img src="images/fekt.png" height="80">
 </p>
 
-# MPC-MAP Assignment No. X - Report
+# MPC-MAP Assignment No. 5 - Report
 
 **Author:** Michal Miškolci  
 **Date:** 27. 4. 2026  
