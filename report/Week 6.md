@@ -19,3 +19,8 @@ To enforce clearance, I dilated the obstacle cells using a small disk kernel so 
 
 ![](images/plannedPathDilatation.png)
 
+# Task 3
+
+I applied the iterative gradient smoothing update $y_i^{(k+1)} = y_i + \alpha(x_i - y_i) + \beta(y_{i-1} + y_{i+1} - 2y_i)$ to each interior waypoint. The parameters $(\alpha, \beta)$ trade off fidelity to the original path versus smoothness; higher $\alpha$ stays closer to the A* path, while higher $\beta$ produces smoother curves over more iterations.
+
+![](images/plannedPathSmooth.png)
