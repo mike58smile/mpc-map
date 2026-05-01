@@ -13,3 +13,9 @@ I implemented a simple A* search on the occupancy grid stored in `read_only_vars
 
 ![](images/plannedPath.png)
 
+# Task 2
+
+To enforce clearance, I dilated the obstacle cells using a small disk kernel so any path cell stays at least 0.5 m from walls. This keeps the planner simple while guaranteeing a minimum safety margin.
+
+![](images/plannedPathDilatation.png)
+

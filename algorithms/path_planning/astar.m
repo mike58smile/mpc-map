@@ -14,6 +14,13 @@ if isempty(step) || ~isfinite(step) || step <= 0
 	step = 1;
 end
 
+% Enforce minimum clearance using obstacle dilation.
+clearance_m = 0.5;
+radius_cells = max(1, ceil(clearance_m / step));
+[kx, ky] = meshgrid(-radius_cells:radius_cells, -radius_cells:radius_cells);
+kernel = (kx.^2 + ky.^2) <= radius_cells^2;
+occ = conv2(double(occ), double(kernel), 'same') > 0;
+
 start_xy = [limits(1), limits(2)];
 if isfield(public_vars, 'estimated_pose') && numel(public_vars.estimated_pose) >= 2 && all(isfinite(public_vars.estimated_pose(1:2)))
 	start_xy = public_vars.estimated_pose(1:2);
