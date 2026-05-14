@@ -1,40 +1,55 @@
-function [weights] = weight_particles(particle_measurements, lidar_distances)
-%WEIGHT_PARTICLES Summary of this function goes here
+function [weights] = weight_particles(particle_measurements, lidar_distances, max_range)
+%WEIGHT_PARTICLES Convert lidar residuals to normalized likelihood weights.
+% Infinite ranges mean "no wall hit". Capping them at the map diagonal lets
+% the filter penalize a predicted wall where the real scan saw open space.
 
-N = size(particle_measurements, 1);
-
-if N == 0
+particle_count = size(particle_measurements, 1);
+if particle_count == 0
 	weights = [];
 	return;
 end
 
-z = lidar_distances(:)';
-sigma = 0.28;
-
-log_weights = -inf(N, 1);
-for i = 1:N
-	z_hat = particle_measurements(i, :);
-	valid = isfinite(z_hat) & isfinite(z);
-
-	if ~any(valid)
-		continue;
+if nargin < 3 || ~isfinite(max_range) || max_range <= 0
+	finite_values = [particle_measurements(isfinite(particle_measurements)); lidar_distances(isfinite(lidar_distances))];
+	if isempty(finite_values)
+		max_range = 10;
+	else
+		max_range = max(10, max(finite_values));
 	end
+end
 
-	err = z_hat(valid) - z(valid);
-	log_weights(i) = -0.5 * sum((err / sigma).^2);
+observed = lidar_distances(:).';
+beam_count = min(size(particle_measurements, 2), numel(observed));
+if beam_count == 0
+	weights = ones(particle_count, 1) / particle_count;
+	return;
+end
+
+observed = observed(1:beam_count);
+observed(~isfinite(observed)) = max_range;
+observed = min(observed, max_range);
+
+log_weights = zeros(particle_count, 1);
+for particle_index = 1:particle_count
+	predicted = particle_measurements(particle_index, 1:beam_count);
+	predicted(~isfinite(predicted)) = max_range;
+	predicted = min(predicted, max_range);
+
+	beam_sigma = 0.30 + 0.04 * observed;
+	residual = predicted - observed;
+	log_weights(particle_index) = -0.5 * sum((residual ./ beam_sigma) .^ 2);
 end
 
 max_log_weight = max(log_weights);
 if ~isfinite(max_log_weight)
-	weights = ones(N, 1) / N;
+	weights = ones(particle_count, 1) / particle_count;
 	return;
 end
 
 weights = exp(log_weights - max_log_weight);
 weight_sum = sum(weights);
-
 if weight_sum <= 0 || ~isfinite(weight_sum)
-	weights = ones(N, 1) / N;
+	weights = ones(particle_count, 1) / particle_count;
 else
 	weights = weights / weight_sum;
 end

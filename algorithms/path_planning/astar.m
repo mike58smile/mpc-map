@@ -1,57 +1,69 @@
 function [path] = astar(read_only_vars, public_vars)
-%ASTAR Summary of this function goes here
+%ASTAR Grid A* with obstacle clearance based on wall geometry.
 
-path = [];
-if ~isfield(read_only_vars, 'discrete_map') || ~isfield(read_only_vars.discrete_map, 'map')
-	return;
-end
-
-occ = read_only_vars.discrete_map.map ~= 0;
-[ny, nx] = size(occ);
-limits = read_only_vars.map.limits;
-step = read_only_vars.map.discretization_step;
+map = read_only_vars.map;
+step = map.discretization_step;
 if isempty(step) || ~isfinite(step) || step <= 0
-	step = 1;
+	step = 0.2;
 end
 
-% Enforce minimum clearance using obstacle dilation.
-clearance_m = 0.5;
-radius_cells = max(1, ceil(clearance_m / step));
-[kx, ky] = meshgrid(-radius_cells:radius_cells, -radius_cells:radius_cells);
-kernel = (kx.^2 + ky.^2) <= radius_cells^2;
-occ = conv2(double(occ), double(kernel), 'same') > 0;
+x_grid = map.limits(1):step:map.limits(3);
+y_grid = map.limits(2):step:map.limits(4);
+column_count = numel(x_grid);
+row_count = numel(y_grid);
 
-start_xy = [limits(1), limits(2)];
-if isfield(public_vars, 'estimated_pose') && numel(public_vars.estimated_pose) >= 2 && all(isfinite(public_vars.estimated_pose(1:2)))
-	start_xy = public_vars.estimated_pose(1:2);
-elseif isfield(public_vars, 'mu') && numel(public_vars.mu) >= 2 && all(isfinite(public_vars.mu(1:2)))
-	start_xy = public_vars.mu(1:2).';
+start_xy = choose_start(public_vars, map);
+goal_xy = map.goal(1:2);
+
+clearance_candidates = [max(0.35, 1.6 * step), max(0.28, 1.3 * step), ...
+	max(0.22, 1.1 * step), 1e-6];
+boundary_candidates = [max(0.16, 0.8 * step), max(0.12, 0.6 * step), ...
+	max(0.10, 0.5 * step), 0.0];
+
+for clearance_index = 1:numel(clearance_candidates)
+	occupied = build_occupancy_grid(x_grid, y_grid, map.walls, map.limits, ...
+		clearance_candidates(clearance_index), boundary_candidates(clearance_index));
+	path = search_grid(occupied, x_grid, y_grid, start_xy, goal_xy, step, row_count, column_count);
+	if ~isempty(path)
+		return;
+	end
 end
-goal_xy = read_only_vars.map.goal(1:2);
 
-sx = clamp_index(round((start_xy(1) - limits(1)) / step) + 1, nx);
-sy = clamp_index(round((start_xy(2) - limits(2)) / step) + 1, ny);
-gx = clamp_index(round((goal_xy(1) - limits(1)) / step) + 1, nx);
-gy = clamp_index(round((goal_xy(2) - limits(2)) / step) + 1, ny);
+fine_step = step / 2;
+fine_x_grid = map.limits(1):fine_step:map.limits(3);
+fine_y_grid = map.limits(2):fine_step:map.limits(4);
+fine_occupied = build_occupancy_grid(fine_x_grid, fine_y_grid, map.walls, map.limits, 1e-6, 0.0);
+path = search_grid(fine_occupied, fine_x_grid, fine_y_grid, start_xy, goal_xy, ...
+	fine_step, numel(fine_y_grid), numel(fine_x_grid));
 
-[sx, sy] = nearest_free(occ, sx, sy);
-[gx, gy] = nearest_free(occ, gx, gy);
+end
 
-start_idx = sub2ind([ny, nx], sy, sx);
-goal_idx = sub2ind([ny, nx], gy, gx);
-num_nodes = nx * ny;
+function path = search_grid(occupied, x_grid, y_grid, start_xy, goal_xy, step, row_count, column_count)
+path = [];
 
-g_score = inf(num_nodes, 1);
-f_score = inf(num_nodes, 1);
-parent = zeros(num_nodes, 1);
-open = false(num_nodes, 1);
-closed = false(num_nodes, 1);
+start_column = nearest_index(x_grid, start_xy(1));
+start_row = nearest_index(y_grid, start_xy(2));
+goal_column = nearest_index(x_grid, goal_xy(1));
+goal_row = nearest_index(y_grid, goal_xy(2));
 
-g_score(start_idx) = 0;
-f_score(start_idx) = heuristic([sx, sy], [gx, gy], step);
-open(start_idx) = true;
+[start_column, start_row] = nearest_free(occupied, start_column, start_row);
+[goal_column, goal_row] = nearest_free(occupied, goal_column, goal_row);
 
-neighbor_d = [ ...
+start_index = sub2ind([row_count, column_count], start_row, start_column);
+goal_index = sub2ind([row_count, column_count], goal_row, goal_column);
+node_count = row_count * column_count;
+
+g_score = inf(node_count, 1);
+f_score = inf(node_count, 1);
+parent = zeros(node_count, 1);
+open_set = false(node_count, 1);
+closed_set = false(node_count, 1);
+
+g_score(start_index) = 0;
+f_score(start_index) = heuristic([start_column, start_row], [goal_column, goal_row], step);
+open_set(start_index) = true;
+
+neighbors = [ ...
 	-1, -1, sqrt(2) * step; ...
 	-1,  0, step; ...
 	-1,  1, sqrt(2) * step; ...
@@ -62,92 +74,133 @@ neighbor_d = [ ...
 	 1,  1, sqrt(2) * step];
 
 found = false;
-while any(open)
-	candidates = find(open);
-	[~, rel] = min(f_score(candidates));
-	current = candidates(rel);
+while any(open_set)
+	candidates = find(open_set);
+	[~, relative_index] = min(f_score(candidates));
+	current = candidates(relative_index);
 
-	if current == goal_idx
+	if current == goal_index
 		found = true;
 		break;
 	end
 
-	open(current) = false;
-	closed(current) = true;
+	open_set(current) = false;
+	closed_set(current) = true;
 
-	[cy, cx] = ind2sub([ny, nx], current);
-	for k = 1:size(neighbor_d, 1)
-		nx_i = cx + neighbor_d(k, 1);
-		ny_i = cy + neighbor_d(k, 2);
-		if nx_i < 1 || nx_i > nx || ny_i < 1 || ny_i > ny
+	[current_row, current_column] = ind2sub([row_count, column_count], current);
+	for neighbor_index = 1:size(neighbors, 1)
+		next_column = current_column + neighbors(neighbor_index, 1);
+		next_row = current_row + neighbors(neighbor_index, 2);
+
+		if next_column < 1 || next_column > column_count || next_row < 1 || next_row > row_count
 			continue;
 		end
-		if occ(ny_i, nx_i)
-			continue;
-		end
-
-		nidx = sub2ind([ny, nx], ny_i, nx_i);
-		if closed(nidx)
+		if occupied(next_row, next_column)
 			continue;
 		end
 
-		tentative = g_score(current) + neighbor_d(k, 3);
-		if ~open(nidx) || tentative < g_score(nidx)
-			parent(nidx) = current;
-			g_score(nidx) = tentative;
-			f_score(nidx) = tentative + heuristic([nx_i, ny_i], [gx, gy], step);
-			open(nidx) = true;
+		next_index = sub2ind([row_count, column_count], next_row, next_column);
+		if closed_set(next_index)
+			continue;
+		end
+
+		tentative_score = g_score(current) + neighbors(neighbor_index, 3);
+		if ~open_set(next_index) || tentative_score < g_score(next_index)
+			parent(next_index) = current;
+			g_score(next_index) = tentative_score;
+			f_score(next_index) = tentative_score + heuristic([next_column, next_row], [goal_column, goal_row], step);
+			open_set(next_index) = true;
 		end
 	end
 end
 
 if ~found
-	path = [];
 	return;
 end
 
-idx_path = goal_idx;
-while idx_path(1) ~= start_idx
-	p = parent(idx_path(1));
-	if p == 0
+index_path = goal_index;
+while index_path(1) ~= start_index
+	previous = parent(index_path(1));
+	if previous == 0
 		path = [];
 		return;
 	end
-	idx_path = [p; idx_path]; %#ok<AGROW>
+	index_path = [previous; index_path]; %#ok<AGROW>
 end
 
-path = zeros(numel(idx_path), 2);
-for i = 1:numel(idx_path)
-	[py, px] = ind2sub([ny, nx], idx_path(i));
-	path(i, :) = [limits(1) + (px - 1) * step, limits(2) + (py - 1) * step];
+path = zeros(numel(index_path), 2);
+for path_index = 1:numel(index_path)
+	[path_row, path_column] = ind2sub([row_count, column_count], index_path(path_index));
+	path(path_index, :) = [x_grid(path_column), y_grid(path_row)];
 end
 
 end
 
-function idx = clamp_index(idx, max_val)
-idx = max(1, min(max_val, idx));
+function start_xy = choose_start(public_vars, map)
+if isfield(public_vars, 'estimated_pose') && numel(public_vars.estimated_pose) >= 2 && ...
+		all(isfinite(public_vars.estimated_pose(1:2)))
+	start_xy = public_vars.estimated_pose(1:2);
+elseif isfield(public_vars, 'mu') && numel(public_vars.mu) >= 2 && all(isfinite(public_vars.mu(1:2)))
+	start_xy = public_vars.mu(1:2).';
+elseif isfield(public_vars, 'particles') && ~isempty(public_vars.particles)
+	start_xy = mean(public_vars.particles(:, 1:2), 1);
+else
+	start_xy = [mean(map.limits([1, 3])), mean(map.limits([2, 4]))];
+end
 end
 
-function h = heuristic(a, b, step)
-h = hypot((a(1) - b(1)) * step, (a(2) - b(2)) * step);
+function index = nearest_index(values, value)
+[~, index] = min(abs(values - value));
 end
 
-function [fx, fy] = nearest_free(occ, x, y)
-if ~occ(y, x)
-	fx = x;
-	fy = y;
+function distance = heuristic(a, b, step)
+distance = hypot((a(1) - b(1)) * step, (a(2) - b(2)) * step);
+end
+
+function occupied = build_occupancy_grid(x_grid, y_grid, walls, limits, clearance, boundary_clearance)
+[grid_x, grid_y] = meshgrid(x_grid, y_grid);
+occupied = grid_x <= limits(1) + boundary_clearance | grid_x >= limits(3) - boundary_clearance | ...
+		   grid_y <= limits(2) + boundary_clearance | grid_y >= limits(4) - boundary_clearance;
+
+for wall_index = 1:size(walls, 1)
+	wall_start = walls(wall_index, 1:2);
+	wall_end = walls(wall_index, 3:4);
+	distance = point_segment_distance_grid(grid_x, grid_y, wall_start, wall_end);
+	occupied = occupied | distance <= clearance;
+end
+end
+
+function distance = point_segment_distance_grid(grid_x, grid_y, segment_start, segment_end)
+segment = segment_end - segment_start;
+denominator = segment(1) ^ 2 + segment(2) ^ 2;
+if denominator < eps
+	distance = hypot(grid_x - segment_start(1), grid_y - segment_start(2));
 	return;
 end
 
-[ys, xs] = find(~occ);
-if isempty(xs)
-	fx = x;
-	fy = y;
+projection = ((grid_x - segment_start(1)) * segment(1) + (grid_y - segment_start(2)) * segment(2)) / denominator;
+projection = max(0, min(1, projection));
+closest_x = segment_start(1) + projection * segment(1);
+closest_y = segment_start(2) + projection * segment(2);
+distance = hypot(grid_x - closest_x, grid_y - closest_y);
+end
+
+function [free_column, free_row] = nearest_free(occupied, column, row)
+if ~occupied(row, column)
+	free_column = column;
+	free_row = row;
 	return;
 end
 
-[~, idx] = min((xs - x).^2 + (ys - y).^2);
-fx = xs(idx);
-fy = ys(idx);
+[free_rows, free_columns] = find(~occupied);
+if isempty(free_columns)
+	free_column = column;
+	free_row = row;
+	return;
+end
+
+[~, nearest] = min((free_columns - column) .^ 2 + (free_rows - row) .^ 2);
+free_column = free_columns(nearest);
+free_row = free_rows(nearest);
 end
 

@@ -18,15 +18,59 @@ public_vars.particles = update_particle_filter(read_only_vars, public_vars);
 % 11. Estimate current robot position
 public_vars.gnss_available = isfield(read_only_vars, 'gnss_position') && ...
     numel(read_only_vars.gnss_position) >= 2 && all(isfinite(read_only_vars.gnss_position(1:2)));
+public_vars.map_goal = read_only_vars.map.goal(1:2);
+public_vars.goal_tolerance = read_only_vars.map.goal_tolerance;
 public_vars.estimated_pose = estimate_pose(public_vars); % (x,y,theta)
 
-% 12. Path planning
-public_vars.path = plan_path(read_only_vars, public_vars);
+% 12. Path planning. A* is expensive, so reuse the path while the robot is
+% still close to it and only replan when the estimate drifts away.
+if should_replan_path(read_only_vars, public_vars)
+    new_path = plan_path(read_only_vars, public_vars);
+    if ~isempty(new_path) || isempty(public_vars.path)
+        public_vars.path = new_path;
+    end
+end
 
 % 13. Plan next motion command
 public_vars = plan_motion(read_only_vars, public_vars);
 
 
 
+end
+
+function replan = should_replan_path(read_only_vars, public_vars)
+replan = false;
+
+counter = 1;
+if isfield(read_only_vars, 'counter')
+    counter = read_only_vars.counter;
+end
+
+if ~isfield(public_vars, 'path') || isempty(public_vars.path)
+    replan = counter <= 2 || mod(counter, 12) == 0;
+    return;
+end
+
+if ~isfield(public_vars, 'estimated_pose') || numel(public_vars.estimated_pose) < 2 || ...
+        any(~isfinite(public_vars.estimated_pose(1:2)))
+    return;
+end
+
+goal_xy = read_only_vars.map.goal(1:2);
+if norm(public_vars.path(end, :) - goal_xy) > read_only_vars.map.goal_tolerance
+    replan = true;
+    return;
+end
+
+step = read_only_vars.map.discretization_step;
+max_path_distance = max(0.9, 4 * step);
+distances = sqrt(sum((public_vars.path - public_vars.estimated_pose(1:2)) .^ 2, 2));
+if min(distances) > max_path_distance
+    replan = true;
+    return;
+end
+
+% Periodic cheap check lets the path recover after large localization shifts.
+replan = mod(counter, 25) == 0;
 end
 
