@@ -1,5 +1,5 @@
 function [new_particles] = resample_particles(particles, weights)
-%RESAMPLE_PARTICLES Summary of this function goes here
+%RESAMPLE_PARTICLES Systematic resampling with light roughening.
 
 N = size(particles, 1);
 
@@ -18,6 +18,7 @@ weights(~isfinite(weights) | weights < 0) = 0;
 w_sum = sum(weights);
 
 if w_sum <= 0
+	% Degenerate likelihoods should not destroy the cloud.
 	weights = ones(N, 1) / N;
 else
 	weights = weights / w_sum;
@@ -31,6 +32,7 @@ c = weights(1);
 i = 1;
 
 for m = 1:N
+	% Walk once through the cumulative distribution using evenly spaced draws.
 	u = r + (m - 1) / N;
 	while u > c && i < N
 		i = i + 1;

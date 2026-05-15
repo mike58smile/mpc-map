@@ -15,12 +15,16 @@ row_count = numel(y_grid);
 start_xy = choose_start(public_vars, map);
 goal_xy = map.goal(1:2);
 
+% Try safer inflated grids first. If a narrow map cannot be solved with the
+% larger clearances, progressively fall back to tighter clearances.
 clearance_candidates = [max(0.35, 1.6 * step), max(0.28, 1.3 * step), ...
 	max(0.22, 1.1 * step), 1e-6];
 boundary_candidates = [max(0.16, 0.8 * step), max(0.12, 0.6 * step), ...
 	max(0.10, 0.5 * step), 0.0];
 
 for clearance_index = 1:numel(clearance_candidates)
+	% Occupancy is built from wall geometry, not from a toolbox image-dilation
+	% function, so the planner stays toolbox-free.
 	occupied = build_occupancy_grid(x_grid, y_grid, map.walls, map.limits, ...
 		clearance_candidates(clearance_index), boundary_candidates(clearance_index));
 	path = search_grid(occupied, x_grid, y_grid, start_xy, goal_xy, step, row_count, column_count);
@@ -29,6 +33,8 @@ for clearance_index = 1:numel(clearance_candidates)
 	end
 end
 
+% Final fallback: a finer grid can represent tight passages that disappear
+% on the default 0.2 m grid. This is used only after normal clearances fail.
 fine_step = step / 2;
 fine_x_grid = map.limits(1):fine_step:map.limits(3);
 fine_y_grid = map.limits(2):fine_step:map.limits(4);
@@ -39,6 +45,8 @@ path = search_grid(fine_occupied, fine_x_grid, fine_y_grid, start_xy, goal_xy, .
 end
 
 function path = search_grid(occupied, x_grid, y_grid, start_xy, goal_xy, step, row_count, column_count)
+%SEARCH_GRID Standard 8-connected A* over a precomputed occupancy grid.
+
 path = [];
 
 start_column = nearest_index(x_grid, start_xy(1));
@@ -75,6 +83,8 @@ neighbors = [ ...
 
 found = false;
 while any(open_set)
+	% For these small maps, scanning the open set is simple and sufficiently
+	% fast. A heap would be more code without much benefit here.
 	candidates = find(open_set);
 	[~, relative_index] = min(f_score(candidates));
 	current = candidates(relative_index);
@@ -130,6 +140,7 @@ end
 
 path = zeros(numel(index_path), 2);
 for path_index = 1:numel(index_path)
+	% Convert grid indices back to simulator/world coordinates.
 	[path_row, path_column] = ind2sub([row_count, column_count], index_path(path_index));
 	path(path_index, :) = [x_grid(path_column), y_grid(path_row)];
 end
@@ -137,6 +148,8 @@ end
 end
 
 function start_xy = choose_start(public_vars, map)
+%CHOOSE_START Prefer the current pose estimate, then EKF, then particle mean.
+
 if isfield(public_vars, 'estimated_pose') && numel(public_vars.estimated_pose) >= 2 && ...
 		all(isfinite(public_vars.estimated_pose(1:2)))
 	start_xy = public_vars.estimated_pose(1:2);
@@ -158,6 +171,8 @@ distance = hypot((a(1) - b(1)) * step, (a(2) - b(2)) * step);
 end
 
 function occupied = build_occupancy_grid(x_grid, y_grid, walls, limits, clearance, boundary_clearance)
+%BUILD_OCCUPANCY_GRID Mark cells too close to walls or arena borders.
+
 [grid_x, grid_y] = meshgrid(x_grid, y_grid);
 occupied = grid_x <= limits(1) + boundary_clearance | grid_x >= limits(3) - boundary_clearance | ...
 		   grid_y <= limits(2) + boundary_clearance | grid_y >= limits(4) - boundary_clearance;
@@ -171,6 +186,8 @@ end
 end
 
 function distance = point_segment_distance_grid(grid_x, grid_y, segment_start, segment_end)
+%POINT_SEGMENT_DISTANCE_GRID Vectorized point-to-wall distance for one wall.
+
 segment = segment_end - segment_start;
 denominator = segment(1) ^ 2 + segment(2) ^ 2;
 if denominator < eps
@@ -186,6 +203,8 @@ distance = hypot(grid_x - closest_x, grid_y - closest_y);
 end
 
 function [free_column, free_row] = nearest_free(occupied, column, row)
+%NEAREST_FREE Move start/goal off an occupied cell if inflation covers it.
+
 if ~occupied(row, column)
 	free_column = column;
 	free_row = row;

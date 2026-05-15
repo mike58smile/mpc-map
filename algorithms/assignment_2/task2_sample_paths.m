@@ -9,6 +9,7 @@ sine_amplitude_scale = path_params.sine_amplitude_scale;
 circular_arcs = path_params.circular_arcs;
 circular_height_scale = path_params.circular_height_scale;
 
+% Dispatch by a human-readable path name used in the assignment GUI/script.
 switch lower(path_name)
     case {'1', 'straight', 'line'}
         path = create_straight_path(start_point, end_point);

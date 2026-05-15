@@ -20,6 +20,8 @@ delta = path - position;
 distances = sqrt(sum(delta .^ 2, 2));
 [~, nearest_index] = min(distances);
 
+% Choose a point ahead of the nearest path waypoint. A short lookahead keeps
+% tight indoor turns safe while still smoothing small localization noise.
 lookahead_distance = 0.35;
 travel = 0;
 target_index = nearest_index;

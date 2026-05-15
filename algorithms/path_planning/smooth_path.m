@@ -13,12 +13,16 @@ end
 
 map = read_only_vars.map;
 step = map.discretization_step;
+% Shortcut segments must be farther from walls than the raw A* clearance,
+% otherwise smoothing could cut across obstacle corners.
 clearance = max(0.55, 2.5 * step);
 
 shortcut = old_path(1, :);
 anchor_index = 1;
 while anchor_index < size(old_path, 1)
 	next_index = anchor_index + 1;
+	% Greedily connect the current anchor to the farthest later waypoint that
+	% remains collision-free with the chosen clearance.
 	for candidate_index = size(old_path, 1):-1:(anchor_index + 1)
 		if segment_is_clear(old_path(anchor_index, :), old_path(candidate_index, :), map, clearance)
 			next_index = candidate_index;
@@ -33,6 +37,8 @@ new_path = shortcut;
 end
 
 function clear = segment_is_clear(start_point, end_point, map, clearance)
+%SEGMENT_IS_CLEAR Sample a straight segment and test clearance to every wall.
+
 segment_length = norm(end_point - start_point);
 sample_count = max(2, ceil(segment_length / max(0.05, map.discretization_step / 2)));
 clear = true;
@@ -56,6 +62,8 @@ end
 end
 
 function distance = point_segment_distance(point, segment_start, segment_end)
+%POINT_SEGMENT_DISTANCE Distance from one sampled point to one wall segment.
+
 segment = segment_end - segment_start;
 denominator = dot(segment, segment);
 if denominator < eps
@@ -70,6 +78,8 @@ distance = norm(point - closest);
 end
 
 function smoothed = numeric_smooth(path)
+%NUMERIC_SMOOTH Fallback smoother when map geometry is unavailable.
+
 smoothed = path;
 alpha = 0.5;
 beta = 0.25;

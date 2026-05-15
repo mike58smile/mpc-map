@@ -13,11 +13,16 @@ particles = zeros(particle_count, 4);
 
 seeded_count = 0;
 if ~all(isfinite(gnss_position)) && isfield(read_only_vars, 'lidar_distances')
+	% Without GNSS, pure random initialization can lock onto a symmetric wrong
+	% room. Seed part of the cloud from poses whose simulated lidar scan matches
+	% the first real scan.
 	seeded = lidar_seed_particles(read_only_vars, min(300, particle_count));
 	seeded_count = size(seeded, 1);
 	particles(1:seeded_count, 1:3) = seeded;
 end
 
+% Fill the rest of the cloud with valid random poses so the filter can still
+% recover if the scan-seeded hypotheses miss the true pose.
 for particle_index = seeded_count + 1:particle_count
 	particles(particle_index, 1:3) = sample_particle(read_only_vars.map, gnss_position);
 end
@@ -28,6 +33,8 @@ public_vars.particles = particles;
 end
 
 function particles = lidar_seed_particles(read_only_vars, requested_count)
+%LIDAR_SEED_PARTICLES Generate initial particles from coarse scan matching.
+
 map = read_only_vars.map;
 observed = read_only_vars.lidar_distances(:).';
 max_range = hypot(map.limits(3) - map.limits(1), map.limits(4) - map.limits(2));
@@ -37,6 +44,8 @@ x_values = (map.limits(1) + 0.25):grid_step:(map.limits(3) - 0.25);
 y_values = (map.limits(2) + 0.25):grid_step:(map.limits(4) - 0.25);
 headings = 0:(pi / 8):(2 * pi - pi / 8);
 
+% Evaluate a coarse grid of valid poses and keep the poses whose predicted
+% lidar scan is closest to the measured first scan.
 max_candidates = numel(x_values) * numel(y_values) * numel(headings);
 candidates = inf(max_candidates, 4);
 candidate_count = 0;
@@ -49,6 +58,8 @@ for x_index = 1:numel(x_values)
 			continue;
 		end
 		if is_near_goal_alias(read_only_vars, [x_pos, y_pos])
+			% If the simulator has not stopped, the robot is not actually in the
+			% goal. Excluding goal-side seeds prevents indoor_2-style aliases.
 			continue;
 		end
 
@@ -72,6 +83,8 @@ top_count = min(40, size(candidates, 1));
 particles = zeros(requested_count, 3);
 
 for particle_index = 1:requested_count
+	% Cycle through the best scan matches and add small noise so the particles
+	% cover a local area instead of all sitting on identical grid points.
 	candidate = candidates(mod(particle_index - 1, top_count) + 1, :);
 	for attempt = 1:25
 		x_pos = candidate(2) + 0.10 * randn();
@@ -89,6 +102,8 @@ end
 end
 
 function error_value = lidar_scan_error(predicted, observed, max_range)
+%LIDAR_SCAN_ERROR Mean absolute range error with Inf capped to map diagonal.
+
 beam_count = min(numel(predicted), numel(observed));
 predicted = predicted(1:beam_count);
 observed = observed(1:beam_count);
@@ -98,6 +113,8 @@ error_value = mean(abs(predicted - observed));
 end
 
 function near_goal = is_near_goal_alias(read_only_vars, position)
+%IS_NEAR_GOAL_ALIAS Reject no-GNSS initial candidates too close to the goal.
+
 near_goal = false;
 if ~isfield(read_only_vars, 'map') || ~isfield(read_only_vars.map, 'goal')
 	return;
@@ -111,6 +128,8 @@ near_goal = norm(position - read_only_vars.map.goal(1:2)) <= max(1.2, 2.0 * goal
 end
 
 function particle = sample_particle(map, gnss_position)
+%SAMPLE_PARTICLE Draw one valid random particle, biased by GNSS if possible.
+
 use_gnss = numel(gnss_position) >= 2 && all(isfinite(gnss_position(1:2)));
 
 for attempt = 1:250
@@ -138,6 +157,8 @@ particle = [mean(map.limits([1, 3])), mean(map.limits([2, 4])), -pi + 2 * pi * r
 end
 
 function valid = is_pose_valid(map, x_pos, y_pos, margin)
+%IS_POSE_VALID Check map bounds and minimum distance to every wall segment.
+
 valid = x_pos > map.limits(1) + margin && x_pos < map.limits(3) - margin && ...
 		y_pos > map.limits(2) + margin && y_pos < map.limits(4) - margin;
 if ~valid
@@ -155,6 +176,8 @@ end
 end
 
 function distance = point_segment_distance(point, segment_start, segment_end)
+%POINT_SEGMENT_DISTANCE Distance from a point to a finite wall segment.
+
 segment = segment_end - segment_start;
 denominator = dot(segment, segment);
 if denominator < eps
@@ -169,6 +192,8 @@ distance = norm(point - closest);
 end
 
 function angle = wrap_to_pi(angle)
+%WRAP_TO_PI Local toolbox-free angle wrapping helper.
+
 angle = mod(angle + pi, 2 * pi) - pi;
 end
 

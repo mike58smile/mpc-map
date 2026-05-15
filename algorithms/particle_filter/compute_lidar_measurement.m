@@ -1,5 +1,5 @@
 function [measurement] = compute_lidar_measurement(map, pose, lidar_config)
-%COMPUTE_MEASUREMENTS Summary of this function goes here
+%COMPUTE_LIDAR_MEASUREMENT Simulate lidar beams from a candidate pose.
 
 measurement = zeros(1, length(lidar_config));
 
@@ -8,6 +8,8 @@ heading = pose(3);
 
 for i = 1:length(lidar_config)
 	direction = heading + lidar_config(i);
+	% ray_cast returns all wall intersections for one beam; the lidar reports
+	% the nearest hit distance, or Inf if no wall is hit.
 	intersections = ray_cast(origin, map.walls, direction);
 
 	if isempty(intersections)

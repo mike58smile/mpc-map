@@ -24,6 +24,7 @@ if size(lidar_samples, 1) < 2 || size(gnss_samples, 1) < 2
 end
 
 % Use MATLAB's internal cov with unbiased normalization (n-1).
+% Rows are samples; columns are lidar channels or GNSS axes.
 cov_lidar = cov(lidar_samples);
 cov_gnss = cov(gnss_samples);
 

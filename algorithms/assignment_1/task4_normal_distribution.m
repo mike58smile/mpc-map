@@ -21,9 +21,12 @@ sigma_gnss_x = public_vars.task2.sigma_gnss(1);  % Use the GNSS X component as a
 sigma_lidar_1 = max(sigma_lidar_1, eps);
 sigma_gnss_x = max(sigma_gnss_x, eps);
 
+% Plot over four standard deviations of the larger sensor uncertainty so
+% both curves are visible on the same x-axis.
 x_limit = 4 * max(sigma_lidar_1, sigma_gnss_x);
 x = linspace(-x_limit, x_limit, 500);
 
+% norm_pdf is the local toolbox-free implementation used for this assignment.
 pdf_lidar_1 = norm_pdf(x, mu, sigma_lidar_1);
 pdf_gnss_x = norm_pdf(x, mu, sigma_gnss_x);
 

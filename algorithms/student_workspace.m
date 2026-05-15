@@ -1,5 +1,7 @@
 function [public_vars] = student_workspace(read_only_vars,public_vars)
-%STUDENT_WORKSPACE Summary of this function goes here
+%STUDENT_WORKSPACE Main student hook called once per simulator iteration.
+% The simulator owns read_only_vars; this function updates public_vars only:
+% filters, estimated pose, planned path, and wheel command.
 
 % 8. Perform initialization procedure
 if (read_only_vars.counter == 1)
@@ -10,9 +12,12 @@ if (read_only_vars.counter == 1)
 end
 
 % 9. Update particle filter
+% The particle filter supplies global pose hypotheses from lidar. It is the
+% main absolute localization source when GNSS is denied.
 public_vars.particles = update_particle_filter(read_only_vars, public_vars);
 
 % 10. Update Kalman filter
+% The EKF predicts from wheel commands and corrects x/y whenever GNSS exists.
 [public_vars.mu, public_vars.sigma] = update_kalman_filter(read_only_vars, public_vars);
 
 % 11. Estimate current robot position
@@ -39,6 +44,10 @@ public_vars = plan_motion(read_only_vars, public_vars);
 end
 
 function replan = should_replan_path(read_only_vars, public_vars)
+%SHOULD_REPLAN_PATH Keep A* from running every frame.
+% Replanning is triggered when no path exists, the estimate drifts away from
+% the path, the goal changes, or a periodic recovery check is due.
+
 replan = false;
 
 counter = 1;
@@ -47,6 +56,8 @@ if isfield(read_only_vars, 'counter')
 end
 
 if ~isfield(public_vars, 'path') || isempty(public_vars.path)
+    % If localization is still settling, try planning occasionally instead
+    % of paying the full A* cost on every iteration.
     replan = counter <= 2 || mod(counter, 12) == 0;
     return;
 end
@@ -66,6 +77,8 @@ step = read_only_vars.map.discretization_step;
 max_path_distance = max(0.9, 4 * step);
 distances = sqrt(sum((public_vars.path - public_vars.estimated_pose(1:2)) .^ 2, 2));
 if min(distances) > max_path_distance
+    % A large lateral distance usually means localization jumped to a new
+    % mode or the robot left the old route, so the path must be rebuilt.
     replan = true;
     return;
 end

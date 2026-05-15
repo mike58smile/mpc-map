@@ -20,6 +20,8 @@ n_up_2 = 140;
 n_turn_90 = 8;
 n_turn_90_2 = 7;
 
+% Convert segment lengths into cumulative switching times so the if/elseif
+% chain can select the active open-loop maneuver from the current counter.
 i1 = n_up_1;
 i2 = i1 + n_turn_90;
 i3 = i2 + n_right_1;

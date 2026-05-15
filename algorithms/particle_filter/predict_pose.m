@@ -1,5 +1,5 @@
 function [new_pose] = predict_pose(old_pose, motion_vector, read_only_vars)
-%PREDICT_POSE Summary of this function goes here
+%PREDICT_POSE Sample one particle forward using the wheel command.
 
 new_pose = old_pose;
 
@@ -26,9 +26,11 @@ y = old_pose(2);
 theta = old_pose(3);
 
 if abs(omega) < 1e-6
+	% Straight-line limit avoids division by a near-zero angular velocity.
 	x = x + v * dt * cos(theta);
 	y = y + v * dt * sin(theta);
 else
+	% Exact unicycle arc integration for constant v and omega over one step.
 	x = x + (v / omega) * (sin(theta + omega * dt) - sin(theta));
 	y = y - (v / omega) * (cos(theta + omega * dt) - cos(theta));
 end

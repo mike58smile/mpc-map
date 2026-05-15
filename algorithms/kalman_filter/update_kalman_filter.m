@@ -40,6 +40,8 @@ mu(3) = wrap_to_pi(mu(3));
 end
 
 function heading = heading_from_gnss_history(read_only_vars)
+%HEADING_FROM_GNSS_HISTORY Estimate travel direction from recent GNSS drift.
+
 heading = nan;
 if ~isfield(read_only_vars, 'gnss_history') || size(read_only_vars.gnss_history, 1) < 2
 	return;
@@ -56,6 +58,7 @@ latest = history(end, :);
 for history_index = size(history, 1) - 1:-1:1
 	displacement = latest - history(history_index, :);
 	if norm(displacement) > 0.22
+		% Ignore tiny displacements because GNSS noise would dominate heading.
 		heading = atan2(displacement(2), displacement(1));
 		return;
 	end
@@ -63,12 +66,16 @@ end
 end
 
 function angle = angle_average(old_angle, new_angle, new_weight)
+%ANGLE_AVERAGE Blend angles through sine/cosine to avoid wrap discontinuity.
+
 old_weight = 1 - new_weight;
 angle = atan2(old_weight * sin(old_angle) + new_weight * sin(new_angle), ...
 			  old_weight * cos(old_angle) + new_weight * cos(new_angle));
 end
 
 function angle = wrap_to_pi(angle)
+%WRAP_TO_PI Local toolbox-free angle wrapping helper.
+
 angle = mod(angle + pi, 2 * pi) - pi;
 end
 

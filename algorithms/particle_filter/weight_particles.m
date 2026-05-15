@@ -10,6 +10,8 @@ if particle_count == 0
 end
 
 if nargin < 3 || ~isfinite(max_range) || max_range <= 0
+	% Fallback cap for infinite lidar ranges if the caller did not provide the
+	% map diagonal.
 	finite_values = [particle_measurements(isfinite(particle_measurements)); lidar_distances(isfinite(lidar_distances))];
 	if isempty(finite_values)
 		max_range = 10;
@@ -26,6 +28,8 @@ if beam_count == 0
 end
 
 observed = observed(1:beam_count);
+% Replace "no hit" with a large finite distance so open space can be compared
+% numerically against predicted open space.
 observed(~isfinite(observed)) = max_range;
 observed = min(observed, max_range);
 
@@ -35,6 +39,8 @@ for particle_index = 1:particle_count
 	predicted(~isfinite(predicted)) = max_range;
 	predicted = min(predicted, max_range);
 
+	% Farther beams are less precise, so their allowed residual is slightly
+	% larger than for short-range returns.
 	beam_sigma = 0.30 + 0.04 * observed;
 	residual = predicted - observed;
 	log_weights(particle_index) = -0.5 * sum((residual ./ beam_sigma) .^ 2);

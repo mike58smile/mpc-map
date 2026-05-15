@@ -14,10 +14,14 @@ if public_vars.task2.done
     return;
 end
 
+% Store every lidar sample. For the assignment maps the lidar channels are
+% fixed, so rows correspond to time and columns correspond to beam direction.
 public_vars.task2.lidar_samples(end + 1, :) = read_only_vars.lidar_distances;
 
 
 % if all(isfinite(read_only_vars.gnss_position))
+    % Keep the raw GNSS samples. The commented finite check is useful when
+    % studying denied regions, but the original task expects a full sample set.
     public_vars.task2.gnss_samples(end + 1, :) = read_only_vars.gnss_position;
 % end
 
@@ -48,7 +52,7 @@ clf; % Clear the current figure to prepare for new plots
 tiledlayout(2, 4, 'Padding', 'compact', 'TileSpacing', 'compact'); 
 for i = 1:8
     nexttile; % Move to the next tile in the layout for each channel
-    % Plot histohram for the i-th LiDAR channel using 20 bins
+    % Plot histogram for the i-th LiDAR channel using 20 bins
     histogram(public_vars.task2.lidar_samples(:, i), 20);
     title(['LiDAR channel ', num2str(i)]);
     xlabel('Distance [m]');

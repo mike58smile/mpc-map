@@ -5,6 +5,9 @@ function [estimated_pose] = estimate_pose(public_vars)
 
 estimated_pose = nan(1, 3);
 
+% Build both available pose hypotheses first. The Kalman filter is strong
+% for GNSS x/y, while the particle filter is the only absolute heading and
+% the only absolute pose source inside GNSS-denied areas.
 [pf_pose, pf_confidence] = particle_filter_pose(public_vars);
 kf_pose = kalman_filter_pose(public_vars);
 
@@ -35,6 +38,8 @@ end
 end
 
 function pose = kalman_filter_pose(public_vars)
+%KALMAN_FILTER_POSE Return the EKF state as a row vector when it is valid.
+
 pose = nan(1, 3);
 if isfield(public_vars, 'mu') && numel(public_vars.mu) >= 3
 	mu = public_vars.mu(:);
@@ -45,6 +50,11 @@ end
 end
 
 function [pose, confidence] = particle_filter_pose(public_vars)
+%PARTICLE_FILTER_POSE Estimate pose from the most plausible particle mode.
+% Particle clouds can contain several map-symmetric hypotheses. Averaging all
+% particles would put the estimate between rooms or corridors, so this helper
+% first finds the densest local cluster and averages only particles in it.
+
 pose = nan(1, 3);
 confidence = 0;
 
@@ -66,6 +76,9 @@ end
 particle_count = size(particles, 1);
 weights = ones(particle_count, 1) / particle_count;
 if size(particles, 2) >= 4
+	% The particle filter stores normalized likelihoods in column 4. If they
+	% become invalid for any reason, fall back to a uniform cloud instead of
+	% letting one bad value break the estimator.
 	weights = particles(:, 4);
 	weights(~isfinite(weights) | weights < 0) = 0;
 	weight_sum = sum(weights);
@@ -81,7 +94,8 @@ mode_radius = 0.55;
 mode_radius_sq = mode_radius ^ 2;
 mode_mass = zeros(particle_count, 1);
 
-% Use the densest local cloud instead of averaging separate hypotheses.
+% Compute the probability mass around every particle. The particle whose
+% neighborhood has the largest mass becomes the center of the chosen mode.
 for particle_index = 1:particle_count
 	delta = xy - xy(particle_index, :);
 	nearby = sum(delta .^ 2, 2) <= mode_radius_sq;
@@ -93,9 +107,10 @@ if is_goal_alias_possible(public_vars)
 	goal_tolerance = public_vars.goal_tolerance;
 	near_goal = sqrt(sum((xy - goal_xy) .^ 2, 2)) <= goal_tolerance;
 	if any(~near_goal)
-		% The main simulator checks the true goal before calling this function.
-		% Therefore, in a GNSS-denied frame, a PF mode already in the goal is a
-		% localization alias and should not drive the robot from the start area.
+		% The simulator checks the true goal before student_workspace runs. If we
+		% are still estimating pose, the real robot is not inside the goal yet.
+		% Therefore, in a GNSS-denied frame, a particle mode already in the goal
+		% is probably a map-symmetry alias and must not control the robot.
 		mode_mass(near_goal) = -inf;
 	end
 end
@@ -107,22 +122,29 @@ cluster = particles(in_mode, :);
 cluster_weights = weights(in_mode);
 cluster_weights = cluster_weights / max(eps, sum(cluster_weights));
 
+% Weighted x/y mean and circular heading mean of the selected local mode.
 pose(1:2) = sum(cluster(:, 1:2) .* cluster_weights, 1);
 pose(3) = atan2(sum(cluster_weights .* sin(cluster(:, 3))), ...
 				 sum(cluster_weights .* cos(cluster(:, 3))));
 
+% Confidence combines mode probability and spatial compactness. A tight,
+% high-mass cluster is trusted more than a broad or weak hypothesis.
 spread_delta = cluster(:, 1:2) - pose(1:2);
 spread = sqrt(sum(cluster_weights .* sum(spread_delta .^ 2, 2)));
 confidence = best_mass * max(0, min(1, (1.2 - spread) / 1.2));
 end
 
 function possible = is_goal_alias_possible(public_vars)
+%IS_GOAL_ALIAS_POSSIBLE True only when the PF is the absolute pose source.
+
 possible = isfield(public_vars, 'gnss_available') && ~public_vars.gnss_available && ...
 		isfield(public_vars, 'map_goal') && numel(public_vars.map_goal) >= 2 && ...
 		isfield(public_vars, 'goal_tolerance') && isfinite(public_vars.goal_tolerance);
 end
 
 function angle = wrap_to_pi(angle)
+%WRAP_TO_PI Local replacement for Mapping Toolbox wrapToPi.
+
 angle = mod(angle + pi, 2 * pi) - pi;
 end
 

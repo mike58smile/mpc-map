@@ -15,6 +15,7 @@ end
 dir = d / L;
 normal = [-dir(2), dir(1)];
 
+% The sine offset is measured perpendicular to the straight start-end line.
 amplitude = amplitude_scale * L;
 
 base = start_point + t .* d;

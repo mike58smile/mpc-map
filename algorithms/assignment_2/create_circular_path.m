@@ -24,6 +24,8 @@ s = linspace(0.0, L, n_points)';
 path = zeros(n_points, 2);
 
 for i = 1:n_points
+    % Work in a local coordinate frame for the current half-circle arc, then
+    % map the offset back onto the line between start and end.
     si = s(i);
     seg_idx = min(floor(si / segment_length), n_arcs - 1);
     local_s = si - seg_idx * segment_length;
